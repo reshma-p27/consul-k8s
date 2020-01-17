@@ -40,6 +40,10 @@ func (h *Handler) lifecycleSidecar(pod *corev1.Pod) corev1.Container {
 				Name:  "CONSUL_CACERT",
 				Value: "/consul/connect-inject/consul-ca.pem",
 			},
+			corev1.EnvVar{
+				Name:  "CONSUL_HTTP_SSL_VERIFY",
+				Value: "false",
+			},
 		)
 	} else {
 		envVariables = append(envVariables,

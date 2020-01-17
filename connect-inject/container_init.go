@@ -204,16 +204,17 @@ func (h *Handler) containerInit(pod *corev1.Pod) (corev1.Container, error) {
 // initContainerCommandTpl is the template for the command executed by
 // the init container.
 const initContainerCommandTpl = `
+export CONSUL_GRPC_ADDR="${HOST_IP}:8502"
 {{- if .ConsulCACert}}
 export CONSUL_HTTP_ADDR="https://${HOST_IP}:8501"
-export CONSUL_GRPC_ADDR="https://${HOST_IP}:8502"
+export CONSUL_HTTP_SSL_VERIFY="false"
 export CONSUL_CACERT=/consul/connect-inject/consul-ca.pem
+CA_CONTENTS=$(curl -k ${CONSUL_HTTP_ADDR}/v1/connect/ca/roots | jq -r .Roots[0].RootCert)
 cat <<EOF >/consul/connect-inject/consul-ca.pem
-{{ .ConsulCACert }}
+${CA_CONTENTS}
 EOF
 {{- else}}
 export CONSUL_HTTP_ADDR="${HOST_IP}:8500"
-export CONSUL_GRPC_ADDR="${HOST_IP}:8502"
 {{- end}}
 
 # Register the service. The HCL is stored in the volume so that
