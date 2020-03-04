@@ -10,14 +10,31 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func (c *Command) createLocalACL(name, rules string, consulClient *api.Client) error {
+	return c.createACL(name, rules, true, consulClient)
+}
+
+func (c *Command) createGlobalACL(name, rules string, consulClient *api.Client) error {
+	return c.createACL(name, rules, false, consulClient)
+}
+
 // createACL creates a policy with rules and name, creates an ACL token for that
 // policy and then writes the token to a Kubernetes secret.
-func (c *Command) createACL(name, rules string, consulClient *api.Client) error {
+func (c *Command) createACL(name, rules string, localToken bool, consulClient *api.Client) error {
 	// Create policy with the given rules.
+	policyName := fmt.Sprintf("%s-token", name)
+	if c.flagEnableACLReplication {
+		policyName = fmt.Sprintf("%s-token-%s", name, c.flagDatacenter)
+	}
+	var datacenters []string
+	if localToken {
+		datacenters = []string{c.flagDatacenter}
+	}
 	policyTmpl := api.ACLPolicy{
-		Name:        fmt.Sprintf("%s-token", name),
+		Name:        policyName,
 		Description: fmt.Sprintf("%s Token Policy", name),
 		Rules:       rules,
+		Datacenters: datacenters,
 	}
 	err := c.untilSucceeds(fmt.Sprintf("creating %s policy", policyTmpl.Name),
 		func() error {
@@ -40,6 +57,7 @@ func (c *Command) createACL(name, rules string, consulClient *api.Client) error 
 	tokenTmpl := api.ACLToken{
 		Description: fmt.Sprintf("%s Token", name),
 		Policies:    []*api.ACLTokenPolicyLink{{Name: policyTmpl.Name}},
+		Local:       localToken,
 	}
 	var token string
 	err = c.untilSucceeds(fmt.Sprintf("creating token for policy %s", policyTmpl.Name),
